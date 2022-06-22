@@ -6,7 +6,7 @@ const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 
 // load helper function to detect stealth plugin
-const { warnIfNotUsingStealth } = require("../helpers/helperFunctions.js");
+const {warnIfNotUsingStealth} = require("../helpers/helperFunctions.js");
 
 /**
  * Scrapes all collections from the Rankings page at https://opensea.io/rankings
@@ -18,86 +18,84 @@ const { warnIfNotUsingStealth } = require("../helpers/helperFunctions.js");
  * }
  */
 const rankings = async (type = "total", optionsGiven = {}, chain = undefined) => {
-  const optionsDefault = {
-    debug: false,
-    logs: false,
-    browserInstance: undefined,
-  };
-  const options = { ...optionsDefault, ...optionsGiven };
-  const { debug, logs, browserInstance } = options;
-  const customPuppeteerProvided = Boolean(optionsGiven.browserInstance);
-  logs && console.log(`=== OpenseaScraper.rankings() ===\n`);
+    const optionsDefault = {
+        debug: false,
+        logs: false,
+        browserInstance: undefined,
+    };
+    const options = {...optionsDefault, ...optionsGiven};
+    const {debug, logs, browserInstance} = options;
+    const customPuppeteerProvided = Boolean(optionsGiven.browserInstance);
+    // logs && console.log(`=== OpenseaScraper.rankings() ===\n`);
 
-  // init browser
-  let browser = browserInstance;
-  if (!customPuppeteerProvided) {
-    browser = await puppeteer.launch({
-      headless: !debug, // when debug is true => headless should be false
-      args: ['--start-maximized'],
+    // init browser
+    let browser = browserInstance;
+    if (!customPuppeteerProvided) {
+        browser = await puppeteer.launch({
+            headless: !debug, // when debug is true => headless should be false
+            args: ['--start-maximized'],
+        });
+    }
+    customPuppeteerProvided && warnIfNotUsingStealth(browser);
+
+    const page = await browser.newPage();
+    const url = getUrl(type, chain);
+    await page.goto(url);
+    await page.waitForSelector('.cf-browser-verification', {hidden: true});
+    const __NEXT_DATA__ = await page.evaluate(() => {
+        // document.querySelector(".fxZIoN").click()
+        const nextDataStr = document.getElementById("__NEXT_DATA__").innerText;
+        // document.getElementById("fxZIoN").click();
+        return JSON.parse(nextDataStr);
     });
-  }
-  customPuppeteerProvided && warnIfNotUsingStealth(browser);
 
-  const page = await browser.newPage();
-  const url = getUrl(type, chain);
-  logs && console.log("...opening url: " + url);
-  await page.goto(url);
 
-  logs && console.log("...🚧 waiting for cloudflare to resolve");
-  await page.waitForSelector('.cf-browser-verification', {hidden: true});
-
-  logs && console.log("extracting __NEXT_DATA variable");
-  const __NEXT_DATA__ = await page.evaluate(() => {
-    const nextDataStr = document.getElementById("__NEXT_DATA__").innerText;
-    return JSON.parse(nextDataStr);
-  });
-
-  // extract relevant info
-  const top100 = _parseNextDataVarible(__NEXT_DATA__);
-  logs && console.log(`🥳 DONE. Total ${top100.length} Collections fetched: `);
-  return top100;
+    // extract relevant info
+    // logs && console.log(`🥳 DONE. Total ${top100.length} Collections fetched: `);
+    return _parseNextDataVarible(__NEXT_DATA__);
 }
 
 function _parseNextDataVarible(__NEXT_DATA__) {
-  const extractFloorPrice = (statsV2) => {
-    try {
-      return {
-        amount: Number(statsV2.floorPrice.eth),
-        currency: "ETH",
-      }
-    } catch(err) {
-      return null;
+    const extractFloorPrice = (statsV2) => {
+        try {
+            return {
+                amount: Number(statsV2.floorPrice.eth),
+                currency: "ETH",
+            }
+        } catch (err) {
+            return null;
+        }
     }
-  }
-  const extractCollection = (obj) => {
-    return {
-      name: obj.name,
-      slug: obj.slug,
-      logo: obj.logo,
-      isVerified: obj.isVerified,
-      floorPrice: extractFloorPrice(obj.statsV2),
-      // statsV2: obj.statsV2, // 🚧 comment back in if you need additional stats
-    };
-  }
-  return __NEXT_DATA__.props.relayCache[0][1].json.data.rankings.edges.map(obj => extractCollection(obj.node));
+    const extractCollection = (obj) => {
+        return {
+            name: obj.name,
+            slug: obj.slug,
+            logo: obj.logo,
+            isVerified: obj.isVerified,
+            floorPrice: extractFloorPrice(obj.statsV2),
+            // statsV2: obj.statsV2, // 🚧 comment back in if you need additional stats
+        };
+    }
+    return __NEXT_DATA__.props.relayCache[0][1].json.data.rankings.edges.map(obj => extractCollection(obj.node));
 }
 
 function getUrl(type, chain) {
-  chainExtraQueryParameter = chain ? `&chain=${chain}` : ''
-  if (type === "24h") {
-    return `https://opensea.io/rankings?sortBy=one_day_volume${chainExtraQueryParameter}`;
+    let chainExtraQueryParameter = chain ? `&chain=${chain}` : ''
+    if (type === "24h") {
+        return `https://opensea.io/rankings?sortBy=one_day_volume${chainExtraQueryParameter}`;
 
-  } else if (type === "7d") {
-    return `https://opensea.io/rankings?sortBy=seven_day_volume${chainExtraQueryParameter}`;
+    } else if (type === "7d") {
+        return `https://opensea.io/rankings?sortBy=seven_day_volume${chainExtraQueryParameter}`;
 
-  } else if (type === "30d") {
-    return `https://opensea.io/rankings?sortBy=thirty_day_volume${chainExtraQueryParameter}`;
+    } else if (type === "30d") {
+        return `https://opensea.io/rankings?sortBy=thirty_day_volume${chainExtraQueryParameter}`;
 
-  } else if (type === "total") {
-    return `https://opensea.io/rankings?sortBy=total_volume${chainExtraQueryParameter}`;
-  }
+    } else if (type === "total") {
+        return `https://opensea.io/rankings?sortBy=total_volume${chainExtraQueryParameter}`;
+    }
 
-  throw new Error(`Invalid type provided. Expected: 24h,7d,30d,total. Got: ${type}`);
+    throw new Error(`Invalid type provided. Expected: 24h,7d,30d,total. Got: ${type}`);
 }
+
 module.exports = rankings;
 
