@@ -15,21 +15,21 @@ const basicInfo = async (slug, ts) => {
                     "S": slug
                 },
                 "name": {
-                    "name": _getName(collectionObj)
+                    "S": _getName(collectionObj)
                 },
                 "symbol": {
                     "S": _getSymbol(collectionObj)
                 },
                 "timestamp": {
-                    "N": Math.round(ts / 1000)
+                    "S": Math.round(ts / 1000).toString()
                 },
                 "date": {
                     "S": date(ts)
                 },
                 "floorPrice": {
-                    "S": stats ? stats.floorPrice : null
+                    "S": stats ? (stats.floorPrice ? stats.floorPrice.toString() : " ") : " "
                 },
-                "contractAddress": {
+                "address": {
                     "S": _getContractAddress(collectionObj)
                 }
             }
